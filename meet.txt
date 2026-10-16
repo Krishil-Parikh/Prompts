@@ -1,0 +1,368 @@
+Here is the complete, production-grade implementation.md specification for Component 1: The Phase 1 Discovery & Adversarial RFC Meeting Engine.
+Before the document itself, notice the five hidden edge-case flaws I caught and engineered out of the naive 3-stage debate model so your system won't break in production:
+ * The "Greenfield vs. Brownfield Hallucination" Flaw: You mentioned the input is a Problem Statement + GitHub URL. If agents start debating in Stage 1 before inspecting that GitHub URL, they will propose a FastAPI + Postgres stack when the repo already has an existing Next.js + Prisma skeleton. I added Stage 0 (Deterministic Repo Reconnaissance) so all agents debate against the actual ground-truth repo state.
+ * The "Manufactured Nitpicking" Flaw: If you strictly force agents to attack each other in Stage 2 with no escape hatch, they will invent fake, pedantic conflicts (e.g., arguing over UUIDv4 vs UUIDv7 for an MVP) that derail the project. I added a Severity Gate (CRITICAL | MAJOR | NITPICK) where anything marked NITPICK is automatically dropped by the orchestrator before reaching the Judge.
+ * The "25 Question Bomb" Flaw: If 6 agents each ask the human 3 questions, the user gets hit with 18 overlapping questions and abandons the CLI. I built an Deduplication & Max-5 Escalation Filter that also strips technical questions (the agents must decide technical trade-offs themselves; humans only get asked product/constraint questions, and every question comes with a recommended default so the user can just press Enter).
+ * The "Polite Markdown Docs" Flaw: If PRD.md, Technical_Approach.md, and Design.md are just prose paragraphs, coding agents in Sprint 1 will hallucinate different routes and column names. In this spec, Design.md and Technical_Approach.md are required to contain executable contract blocks (SQL DDL, OpenAPI/TypeScript interfaces, and directory trees) plus Explicit Rejection Records wired into your memory.md schema.
+ * The "Infinite Revision" Flaw: When the human edits or rejects one of the 3 docs at the approval gate, re-running the entire multi-agent meeting wastes time and tokens. I added a Delta-Only Patch Loop in Stage 5.
+Copy the block below directly into your repository as implementation.md (or docs/phase-1-meeting-implementation.md).
+# `implementation.md` — Phase 1: Adversarial RFC & Architecture Discovery Meeting
+
+## 1. Purpose & Engineering Objective
+
+This document specifies the production implementation for **Phase 1 (The Pre-Sprint Discovery & Architecture Meeting)** of the Autonomous Agile Multi-Agent Software Engineering Team.
+
+### 1.1 The Problem with Standard Multi-Agent Meetings
+In naive multi-agent implementations (e.g., sequential round-robin group chats), agents suffer from two fatal failure modes:
+1. **RLHF Sycophancy Bias:** Models are post-trained to be agreeable. When `Agent B` reads `Agent A`'s proposal in a shared chat history, it defaults to validating and praising `Agent A` rather than challenging flawed assumptions.
+2. **Sequential Information Cascades (Anchoring):** Whichever agent speaks first anchors the probability distribution of the entire conversation. Subsequent agents merely elaborate on the first agent's architecture, resulting in **zero architectural variance** at **7x the token cost**.
+
+### 1.2 The Architectural Solution
+Phase 1 is **not** a free-form chat room. It is a deterministic, **5-Stage Adversarial Request-for-Comments (RFC) State Machine** designed to force orthogonal perspectives, surface hidden integration bottlenecks before a single line of application code is written, involve the human user strictly on high-leverage product trade-offs, and lock down three executable specification artifacts (`PRD.md`, `Technical_Approach.md`, `Design.md`).
+
+---
+
+## 2. Explicit Anti-Patterns (What NOT To Do)
+
+| Anti-Pattern | Why It Fails in Production | What To Do Instead |
+| :--- | :--- | :--- |
+| **Sequential Group Chat (`Agent 1 -> Agent 2 -> Agent 3`)** | Causes anchoring bias; Agent 2 and 3 copy Agent 1's architectural assumptions. | Run **Stage 1 (Blind Parallel Ideation)** using `asyncio.gather` with isolated context windows. |
+| **Conversational Prose Between Agents** | Wastes 60%+ of tokens on greetings (*"Great point, Backend Agent!"*) and degrades structured reasoning. | Enforce strict **JSON/Pydantic Schemas** for all inter-agent proposals and rebuttals. Render them as clean UI cards/dialogues for the human if desired, but pass structured JSON between LLMs. |
+| **Involving All 7 Agents in Phase 1** | Having QA, DevOps, DB, Backend, Frontend, ML, and Security all speak creates a 25-message noise explosion. | Restrict Phase 1 to a **Core 4-Agent Architecture Council** (selected dynamically based on problem domain) + the **Scrum Master / Lead Arbiter**. |
+| **Debating Without Inspecting the GitHub Repo First** | Agents propose greenfield stacks that conflict with existing files, configs, or dependencies already in the provided GitHub URL. | Run **Stage 0 (Deterministic Repo Reconnaissance)** before any LLM call. |
+| **Escalating Technical Decisions to the Human** | Asking the human *"Should we use Redis or Memcached?"* or dumping 15 ungrouped questions ruins UX. | Agents resolve technical trade-offs internally via the Arbiter. Only escalate **Product, Scope, or Budget ambiguities** (capped at **Max 5 questions**, each with a recommended default). |
+| **Generating Pure Prose Specification Docs** | Coding agents in Sprint 1 interpret vague prose differently, causing branch merge disasters. | `Technical_Approach.md` and `Design.md` must embed **strict machine-verifiable contracts** (file tree, DB schema, API routes/payloads, and explicit `REJECTED_APPROACHES`). |
+
+---
+
+## 3. End-to-End State Machine Architecture
+
+```text
+[Input: Problem Statement + GitHub URL + Optional Constraints]
+                               │
+                               ▼
+     ┌───────────────────────────────────────────────────┐
+     │ STAGE 0: DETERMINISTIC REPO RECONNAISSANCE        │
+     │ • Shallow clone / inspect target GitHub repo      │
+     │ • Extract file tree, existing configs, languages  │
+     │ • Classify mode: GREENFIELD vs. BROWNFIELD        │
+     └─────────────────────────┬─────────────────────────┘
+                               │
+                               ▼
+     ┌───────────────────────────────────────────────────┐
+     │ STAGE 1: BLIND PARALLEL RFC PROPOSALS (Isolated)  │
+     │ • 4 Orthogonal Personas run concurrently          │
+     │ • Zero shared chat history between agents         │
+     │ • Each outputs a domain-specific RFC JSON         │
+     └─────────────────────────┬─────────────────────────┘
+                               │
+         ┌─────────────────────┴─────────────────────┐
+         ▼                     ▼                     ▼
+  [Pragmatic MVP]     [Systems Architect]    [Product/UX]    [Red-Team QA]
+         │                     │                     │             │
+         └─────────────────────┬─────────────────────┴─────────────┘
+                               ▼
+     ┌───────────────────────────────────────────────────┐
+     │ STAGE 2: CROSS-EXAMINATION & RED-TEAM REBUTTALS   │
+     │ • Agents receive the compiled Stage 1 RFCs        │
+     │ • Prompt rule: Agreement/praise is FORBIDDEN      │
+     │ • Output: Structured `DisputeObject` (with        │
+     │   Severity Gate) + `CandidateHumanQuestion`       │
+     └─────────────────────────┬─────────────────────────┘
+                               │
+                               ▼
+     ┌───────────────────────────────────────────────────┐
+     │ STAGE 3: QUESTION DEDUPLICATION & HUMAN GATE      │
+     │ • Scrum Master filters out technical nitpicks     │
+     │ • Deduplicates into <= 5 high-impact questions    │
+     │ • Human answers (or accepts recommended defaults) │
+     └─────────────────────────┬─────────────────────────┘
+                               │
+                               ▼
+     ┌───────────────────────────────────────────────────┐
+     │ STAGE 4: ARBITER SYNTHESIS & 3-DOC GENERATION     │
+     │ • Resolves all Stage 2 disputes (logs winner +    │
+     │   rejected alternatives into Memory Graph)        │
+     │ • Generates `PRD.md`, `Technical_Approach.md`,    │
+     │   and `Design.md` with locked contracts           │
+     └─────────────────────────┬─────────────────────────┘
+                               │
+                               ▼
+     ┌───────────────────────────────────────────────────┐
+     │ STAGE 5: HUMAN SPEC APPROVAL & DELTA PATCH LOOP   │
+     │ • User inspects all 3 docs                        │
+     │ • If Edited/Rejected: Run targeted delta update   │
+     │ • If Approved: Lock contracts & trigger Sprint 1  │
+     └───────────────────────────────────────────────────┘
+
+4. Detailed Stage-by-Stage Technical Specification
+Stage 0: Deterministic Repo Reconnaissance (Zero LLM Tokens)
+Before the Scrum Master convenes the meeting, the orchestrator must inspect the provided GitHub repository URL so agents do not hallucinate incompatible stacks.
+Execution Steps:
+ * Run git clone --depth 1 <github_url> /tmp/recon_<project_id> (or inspect via GitHub tree API).
+ * Extract:
+   * Mode: GREENFIELD (empty repo or only README.md / .gitignore / LICENSE) vs. BROWNFIELD (existing source code).
+   * Directory Tree: Top 3 levels of file structure (excluding node_modules, .git, venv, dist).
+   * Manifests: Contents of package.json, pyproject.toml, requirements.txt, Cargo.toml, go.mod, Dockerfile, docker-compose.yml, and existing database schemas (schema.prisma, models.py, .sql).
+ * Compile this into an immutable RepoContextSnapshot JSON object injected into every agent's system prompt.
+Stage 1: Blind Parallel RFC Ideation
+Instead of all 7 developer agents talking at once, the Scrum Master selects 4 Orthogonal Council Personas for the Phase 1 meeting. Each persona is given a selfish utility function designed to create productive engineering tension.
+4.1 The 4 Orthogonal Personas & Their Utility Functions
+| Persona ID | Role Archetype | Selfish Optimization Function | Mandatory Blind-Spot It Must Catch |
+|---|---|---|---|
+| ARCH_SYSTEMS | Lead Systems / Backend & DB Architect | Optimizes for data integrity, clean domain boundaries, schema correctness, and concurrency safety. | Catch race conditions, broken foreign keys, synchronous bottlenecks, and coupling. |
+| UX_PRODUCT | Lead Frontend / DX & API Consumer | Optimizes for end-user latency, intuitive workflows, minimal API waterfall requests, and real-time state feedback. | Catch clunky user journeys, missing loading/error states, and unusable backend API shapes. |
+| PRAGMATIC_MVP | Principal Minimalist / Delivery Lead | Optimizes for simplicity, zero unnecessary infrastructure, fast local execution, and minimal external dependencies. | Veto over-engineered queues (Kafka/Celery/Microservices) when a simpler monolith or in-process queue suffices. |
+| REDTEAM_QA | Staff Chaos / Security & QA Engineer | Optimizes for testability, edge-case survival, input validation, auth boundaries, and deterministic CI verification. | Assume malformed inputs, large payloads, network failures, and untestable spaghetti code. |
+(Note: If the problem statement explicitly involves Machine Learning/AI pipelines, dynamically swap or augment ARCH_SYSTEMS with an ML_SYSTEMS instructions block).
+4.2 Stage 1 Execution Rule (Strict Isolation)
+The orchestrator invokes all 4 agents concurrently (asyncio.gather / Promise.all). No agent sees any other agent's output.
+4.3 Stage 1 Output Schema (Stage1Proposal)
+Each agent must return a valid JSON object matching this Pydantic/Zod schema:
+from pydantic import BaseModel, Field
+from typing import List, Literal
+
+class ComponentProposal(BaseModel):
+    component_name: str
+    proposed_technology_or_pattern: str
+    rationale: str
+    non_negotiable_constraints: List[str]
+
+class Stage1Proposal(BaseModel):
+    agent_id: Literal["ARCH_SYSTEMS", "UX_PRODUCT", "PRAGMATIC_MVP", "REDTEAM_QA"]
+    core_architectural_thesis: str = Field(
+        description="2-3 sentence summary of how this system should be built from your role's perspective."
+    )
+    proposed_components: List[ComponentProposal]
+    identified_risks: List[str] = Field(
+        description="Top 3 technical or product failure modes if built poorly."
+    )
+    assumptions_made: List[str] = Field(
+        description="Implicit assumptions made due to ambiguity in the user's problem statement."
+    )
+
+Stage 2: Forced Red-Team Cross-Examination (The Rebuttal Round)
+Once all four Stage1Proposal payloads are returned, the orchestrator serializes them into a single CombinedStage1Proposals block and passes them back to the 4 agents concurrently for Stage 2.
+4.4 The Anti-Sycophancy System Prompt Rule
+Every agent in Stage 2 receives the following hard system directive:
+CRITICAL SYSTEM DIRECTIVE (STAGE 2 - ADVERSARIAL CROSS-EXAMINATION):
+You are reviewing the initial architectural proposals from your fellow engineering leads.
+1. FORBIDDEN BEHAVIOR: You are strictly forbidden from praising, complimenting, or stating agreement with any proposal. Do not output phrases like "I agree with ARCH_SYSTEMS" or "Great idea." If you agree with a component, ignore it completely.
+2. REQUIRED BEHAVIOR: Hunt for contradictions, over-engineering, integration mismatches (e.g., Frontend expecting streaming while Backend proposes batch REST), untestable components, or unstated product ambiguities.
+3. SEVERITY FILTER: Only file a rebuttal if it is CRITICAL (breaks build, security, or core UX) or MAJOR (causes severe tech debt, high latency, or scope bloat). Do NOT file pedantic style nitpicks.
+
+4.5 Stage 2 Output Schema (Stage2Rebuttal)
+class TechnicalDispute(BaseModel):
+    target_agent: Literal["ARCH_SYSTEMS", "UX_PRODUCT", "PRAGMATIC_MVP", "REDTEAM_QA"]
+    disputed_component: str
+    severity: Literal["CRITICAL", "MAJOR", "NITPICK"]
+    flaw_category: Literal[
+        "OVER_ENGINEERED",
+        "UNDER_SPECIFIED",
+        "INTEGRATION_MISMATCH",
+        "SCALABILITY_OR_LATENCY_TRAP",
+        "UNTESTABLE_OR_INSECURE"
+    ]
+    attack_argument: str = Field(
+        description="Concrete technical proof of why the target agent's proposal will fail or cause friction."
+    )
+    concrete_counter_proposal: str = Field(
+        description="Exact alternative architecture, schema, or pattern to replace the disputed proposal."
+    )
+
+class EscalatedHumanQuestion(BaseModel):
+    question_for_human: str
+    triggered_by_conflict: str = Field(
+        description="Explain which two architectural paths depend on this answer."
+    )
+    options: List[str] = Field(
+        description="2-3 clear choices for the human with brief trade-offs."
+    )
+    recommended_default: str = Field(
+        description="The option the team will take if the human skips this question."
+    )
+
+class Stage2Rebuttal(BaseModel):
+    source_agent: str
+    disputes: List[TechnicalDispute]
+    product_questions_for_human: List[EscalatedHumanQuestion]
+
+4.6 Deterministic Orchestrator Filtering (Post-Stage 2)
+Before moving to Stage 3, the Python/TypeScript orchestrator runs a deterministic filter:
+ * Drop any TechnicalDispute where severity == "NITPICK".
+ * Group remaining disputes by disputed_component.
+ * Collect all product_questions_for_human across the 4 agents.
+Stage 3: Question Synthesis & Human Escalation Gate
+A major failure mode in existing agent teams is bombarding the user with 15 vague or hyper-technical questions.
+4.7 Scrum Master Question Deduplication Rules
+The Scrum Master processes the raw product_questions_for_human list under three strict rules:
+ * Autonomous Technical Resolution: If a question is purely technical (e.g., "Should we use SQLAlchemy or Tortoise ORM?"), the Scrum Master deletes it from the human queue and routes it to Stage 4 (Arbiter Resolution).
+ * Semantic Deduplication & Cap: Merge overlapping product questions into a maximum of 3 to 5 high-impact questions.
+ * Zero-Question Bypass: If the user's initial prompt was already comprehensive and zero valid product questions remain, skip the human pause and proceed directly to Stage 4.
+4.8 UX Format for Human Questions
+Present questions to the user with Trade-off Context + Recommended Defaults so the user can either answer specifically or hit "Use Defaults":
+### Team Architecture Alignment — 2 Decisions Needed
+
+**1. Audio Processing Mode (Raised by conflict between `UX_PRODUCT` and `PRAGMATIC_MVP`)**
+* **Context:** `UX_PRODUCT` proposed live WebSocket streaming transcription, while `PRAGMATIC_MVP` proposed batch file upload (`POST /upload`) with status polling to cut complexity by 70%.
+* **Options:**
+  - `[A]` Batch file upload (`< 50MB` files, async polling)
+  - `[B]` Live microphone WebSocket streaming
+* **Team Recommendation:** `[A]` (Batch file upload for MVP reliability)
+
+Stage 4: Arbiter Resolution, Memory Graph Recording & 3-Doc Generation
+Once the human answers the escalated questions, the Scrum Master + Lead Architect Arbiter resolves all remaining CRITICAL and MAJOR technical disputes from Stage 2 and generates the three required documents.
+4.9 Dispute Resolution & Memory Graph Integration
+For every TechnicalDispute from Stage 2, the Arbiter must output a binding verdict:
+ * winning_proposal: Which agent's design won (or the synthesized compromise).
+ * rejected_proposal: Which design was rejected.
+ * rejection_rationale: Why it was rejected.
+> Integration with memory.md Architecture:
+> Every resolved dispute is immediately written into the Project Memory Store as two linked nodes:
+> [Decision Node: Chosen Pattern (Confidence: 0.95, Scope: Project, Lifecycle: Persistent)] --SUPERSEDES--> [Decision Node: Rejected Pattern (Lifecycle: Archived, Reason: <rejection_rationale>)].
+> This prevents any developer agent in Sprint 1–N from accidentally re-introducing a rejected architecture.
+> 
+4.10 Mandatory Structure of the 3 Generated Documents
+To ensure Sprint 1 agents do not suffer from integration conflicts across their isolated worktrees, the three documents have strict structural requirements:
+Document 1: PRD.md (Product & Backlog Truth)
+ * Executive Summary & Confirmed Scope (incorporating Human Q&A answers).
+ * Explicit Non-Goals (Scope Guardrails) (what agents are forbidden from building).
+ * User Stories & Deterministic Acceptance Criteria: Every feature must have testable Given / When / Then criteria that the QA Agent can turn directly into automated tests.
+ * Initial Epic & Task Dependency DAG: A topological ordering showing which tasks are Sprint 0 / Foundation blockers vs. Parallelizable Feature tasks.
+Document 2: Technical_Approach.md (System Architecture & ADR Truth)
+ * Tech Stack & Runtime Constraints: Exact language versions, package managers (pnpm vs npm, uv/poetry vs pip), test runners (pytest, vitest), and port assignments (Backend: 8000, Frontend: 3000).
+ * Architectural Decision Records (ADRs) from Debate:
+   * Explicitly lists every dispute resolved in Stage 2: Decision, Adopted Proposal, Rejected Alternative, and Why Rejected.
+ * Cross-Worktree Development Rules:
+   * How environment variables (.env.example), database migrations, and shared packages are managed across branches (backend-main, frontend-main, etc.).
+ * Verification & CI Commands: Exact shell commands an agent must run to verify its branch (e.g., pytest tests/ -v, npm run build) before merging its temporary task branch into its permanent role branch.
+Document 3: Design.md (Executable Contract Lock)
+Design.md must not be vague UI prose. It is the Immutable Integration Contract shared by all agents:
+ * Canonical Repository File Tree: The exact directory and file paths where Backend, Frontend, DB, and ML code must live (prevents agents from inventing conflicting folder structures like /src/api vs /app/routers).
+ * Database Schema Contract: Exact SQL DDL / Prisma / SQLAlchemy table definitions, column names, types, and foreign keys.
+ * API Contract Specification: Exact HTTP methods, route paths, request headers, request JSON bodies, response status codes, and response JSON schemas (or shared TypeScript/Pydantic models).
+ * Component & State Flow: UI wireframe hierarchy, state transitions, and error-handling contracts.
+Stage 5: Human Approval Gate & Delta Patch Loop
+After generating PRD.md, Technical_Approach.md, and Design.md, execution pauses for human inspection.
+Human Action:
+  ├── [APPROVE ALL 3] ──▶ Commit all 3 docs to `main` branch (`/docs/`) ──▶ Trigger Sprint 1
+  │
+  └── [REQUEST CHANGES / EDIT] (e.g., "Change DB from Postgres to SQLite in Technical_Approach.md")
+            │
+            ▼
+      ┌──────────────────────────────────────────────────────────────┐
+      │ DELTA PATCH ENGINE (Do NOT re-run Stages 1-3!)               │
+      │ 1. Parse human feedback diff                                 │
+      │ 2. Identify impacted sections across the 3 documents         │
+      │ 3. Run single Arbiter pass to propagate consistency Across   │
+      │    `PRD.md` <-> `Technical_Approach.md` <-> `Design.md`      │
+      │ 4. Re-present updated diff to Human for approval             │
+      └──────────────────────────────────────────────────────────────┘
+
+Crucial Step Upon Approval:
+Once the human clicks Approve, the Orchestrator must commit PRD.md, Technical_Approach.md, and Design.md directly into the main branch of the repository before any developer agent clones the repo into its worktree! That way, every agent's permanent branch (backend-main, frontend-main) starts with the exact same ground-truth specification files inside their local filesystem.
+5. Reference Orchestrator Implementation (Python Async)
+Below is the clean reference control flow for implementing this exact state machine in your backend orchestrator:
+import asyncio
+from typing import List, Dict
+
+class Phase1MeetingOrchestrator:
+    def __init__(self, llm_client, repo_inspector, memory_store, ui_bus):
+        self.llm = llm_client
+        self.repo_inspector = repo_inspector
+        self.memory = memory_store
+        self.ui = ui_bus
+        self.council_roles = [
+            "ARCH_SYSTEMS",
+            "UX_PRODUCT",
+            "PRAGMATIC_MVP",
+            "REDTEAM_QA"
+        ]
+
+    async def run_phase1_discovery(self, problem_statement: str, github_url: str) -> Dict[str, str]:
+        # --- STAGE 0: Deterministic Repo Recon ---
+        await self.ui.emit("MEETING_STAGE", {"stage": "REPO_RECON", "status": "Inspecting GitHub repository..."})
+        repo_snapshot = await self.repo_inspector.inspect(github_url)
+
+        # --- STAGE 1: Blind Parallel Ideation ---
+        await self.ui.emit("MEETING_STAGE", {"stage": "BLIND_RFC", "status": "Council generating independent RFCs..."})
+        stage1_tasks = [
+            self._generate_stage1_proposal(role, problem_statement, repo_snapshot)
+            for role in self.council_roles
+        ]
+        # Run in parallel with isolated contexts (zero anchoring bias)
+        stage1_proposals: List[Stage1Proposal] = await asyncio.gather(*stage1_tasks)
+        await self.ui.emit("STAGE1_COMPLETE", {"proposals": [p.model_dump() for p in stage1_proposals]})
+
+        # --- STAGE 2: Forced Adversarial Cross-Examination ---
+        await self.ui.emit("MEETING_STAGE", {"stage": "REDTEAM_REBUTTAL", "status": "Agents cross-examining proposals..."})
+        rebuttal_tasks = [
+            self._generate_stage2_rebuttal(role, problem_statement, repo_snapshot, stage1_proposals)
+            for role in self.council_roles
+        ]
+        raw_rebuttals: List[Stage2Rebuttal] = await asyncio.gather(*rebuttal_tasks)
+
+        # Filter out NITPICK severity disputes deterministically
+        valid_disputes = [
+            dispute
+            for r in raw_rebuttals
+            for dispute in r.disputes
+            if dispute.severity in ("CRITICAL", "MAJOR")
+        ]
+        await self.ui.emit("STAGE2_DISPUTES", {"disputes": [d.model_dump() for d in valid_disputes]})
+
+        # --- STAGE 3: Question Deduplication & Human Gate ---
+        candidate_questions = [q for r in raw_rebuttals for q in r.product_questions_for_human]
+        curated_questions = await self._curate_human_questions(problem_statement, candidate_questions)
+
+        human_answers = {}
+        if curated_questions:
+            await self.ui.emit("HUMAN_QUESTIONS_REQUIRED", {"questions": curated_questions})
+            human_answers = await self.ui.wait_for_human_response()
+
+        # --- STAGE 4: Arbiter Resolution & 3-Doc Generation ---
+        await self.ui.emit("MEETING_STAGE", {"stage": "SYNTHESIS", "status": "Resolving disputes & generating specs..."})
+        verdicts, docs = await self._synthesize_verdicts_and_docs(
+            problem_statement=problem_statement,
+            repo_snapshot=repo_snapshot,
+            proposals=stage1_proposals,
+            disputes=valid_disputes,
+            human_answers=human_answers
+        )
+
+        # Persist winning and rejected decisions into Memory Graph (memory.md integration)
+        await self.memory.record_phase1_decisions(verdicts)
+
+        # --- STAGE 5: Human Spec Approval & Delta Patch Loop ---
+        while True:
+            await self.ui.emit("DOCS_READY_FOR_REVIEW", {"docs": docs})
+            review_result = await self.ui.wait_for_doc_approval()
+            if review_result["approved"]:
+                await self.repo_inspector.commit_docs_to_main(github_url, docs)
+                return docs
+            else:
+                # Run targeted delta patch without re-running Stages 1-3
+                docs = await self._apply_delta_patch(docs, review_result["feedback"])
+
+6. How to Render This in Your UI / Terminal So It Looks Like a Live Debate
+Even though the backend executes Stage 1 and Stage 2 as structured parallel JSON calls (for speed, token efficiency, and zero sycophancy), you can render the output in your UI/CLI as an engaging, high-signal engineering debate:
+ * When Stage 1 completes: Render 4 clean cards showing each agent's initial thesis ("ARCH_SYSTEMS proposes FastAPI + Postgres + Celery; PRAGMATIC_MVP proposes FastAPI + SQLite + BackgroundTasks").
+ * When Stage 2 completes: Stream each TechnicalDispute as a threaded rebuttal:
+   * 🔴 PRAGMATIC_MVP challenged ARCH_SYSTEMS [MAJOR - OVER_ENGINEERED]: "Adding Celery + Redis for an MVP audio tool adds 2 extra containers and broker failure modes. FastAPI BackgroundTasks or an asyncio worker pool handles <50 concurrent jobs in-process with zero infra overhead."
+   * 🔴 UX_PRODUCT challenged ARCH_SYSTEMS [CRITICAL - INTEGRATION_MISMATCH]: "Your /transcribe endpoint blocks until transcription finishes. Frontend requests will timeout after 30s. Counter-proposal: Return 202 Accepted with { job_id } and expose GET /jobs/{job_id}."
+ * When Stage 4 completes: Show the Scrum Master's gavel verdict on each thread (ACCEPTED COUNTER-PROPOSAL / OVERRULED) right before presenting the questions and the 3 generated documents.
+7. Verification Checklist (Definition of Done for Component 1)
+ * [ ] Zero Sequential Anchoring: Stage 1 calls run concurrently via asyncio.gather with isolated message arrays.
+ * [ ] Repo Awareness: Stage 0 extracts existing repo files before Stage 1 begins.
+ * [ ] Zero Sycophancy: Stage 2 system prompt explicitly bans agreement and enforces the TechnicalDispute schema.
+ * [ ] Human Protection: Escalated questions are capped at <= 5, exclude purely technical choices, and always include a recommended_default.
+ * [ ] Contract Lock in Design.md: Generated Design.md contains exact file paths, DB table schemas, and API endpoint request/response payloads.
+ * [ ] Git Ground-Truth: Upon human approval, PRD.md, Technical_Approach.md, and Design.md are committed directly to the base branch before Sprint 1 worktrees are cloned.
+
+---
+
+### What's Next?
+Take a look through this `implementation.md` for **Component 1 (The First Meeting)**. 
+
+Does this match the exact depth and structure you want for your engineering docs? If you want any adjustments to this first meeting (or the exact system prompt strings for the 4 council agents and the Arbiter), let me know—otherwise, tell me which component we are tackling as **Component 2** (e.g., **Sprint Planning & Task Decomposition**, **The Two-Tier Git Worktree & A2A Merge Protocol**, or **Daily Standups & Blocker Resolution**)!
+
